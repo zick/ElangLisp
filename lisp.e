@@ -30,6 +30,7 @@ def sym_quote := makeSym("quote")
 def sym_if := makeSym("if")
 def sym_lambda := makeSym("lambda")
 def sym_defun := makeSym("defun")
+def sym_setq := makeSym("setq")
 
 def makeError(s) {
   def err {
@@ -304,6 +305,16 @@ def eval(obj, env) {
     def sym := safeCar(args)
     addToEnv(sym, expr, g_env)
     return sym
+  } else if (op == sym_setq) {
+    def val := eval(safeCar(safeCdr(args)), env)
+    def sym := safeCar(args)
+    def bnd := findVar(sym, env)
+    if (bnd == kNil) {
+      addToEnv(sym, val, g_env)
+    } else {
+      bnd.setCdr(val)
+    }
+    return val
   }
   return apply(eval(op, env), evlis(args, env))
 }
