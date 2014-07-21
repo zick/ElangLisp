@@ -29,6 +29,7 @@ def sym_t := makeSym("t")
 def sym_quote := makeSym("quote")
 def sym_if := makeSym("if")
 def sym_lambda := makeSym("lambda")
+def sym_defun := makeSym("defun")
 
 def makeError(s) {
   def err {
@@ -298,6 +299,11 @@ def eval(obj, env) {
     return eval(safeCar(safeCdr(args)), env)
   } else if (op == sym_lambda) {
     return makeExpr(args, env)
+  } else if (op == sym_defun) {
+    def expr := makeExpr(safeCdr(args), env)
+    def sym := safeCar(args)
+    addToEnv(sym, expr, g_env)
+    return sym
   }
   return apply(eval(op, env), evlis(args, env))
 }
