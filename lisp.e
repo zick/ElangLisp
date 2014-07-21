@@ -27,6 +27,7 @@ def makeSym(s) {
 }
 def sym_t := makeSym("t")
 def sym_quote := makeSym("quote")
+def sym_if := makeSym("if")
 
 def makeError(s) {
   def err {
@@ -45,6 +46,14 @@ def makeCons(var a, var d) {
     to setCdr(v) { d := v }
   }
   return cons
+}
+
+def makeSubr(f) {
+  def subr {
+    to tag() { return "subr" }
+    to call(args) { return f(args) }
+  }
+  return subr
 }
 
 def safeCar(obj) {
@@ -240,6 +249,9 @@ def addToEnv(sym, val, env) {
   env.setCar(makeCons(makeCons(sym, val), env.car()))
 }
 
+var evlis := null
+var apply := null
+
 def eval(obj, env) {
   if (obj == kNil || obj.tag() == "num" || obj.tag() == "error") {
     return obj
@@ -250,10 +262,65 @@ def eval(obj, env) {
     }
     return bnd.cdr()
   }
-  return makeError("noimpl")
+
+  def op := safeCar(obj)
+  def args := safeCdr(obj)
+  if (op == sym_quote) {
+    return safeCar(args)
+  } else if (op == sym_if) {
+    def c := eval(safeCar(args), env)
+    if (c.tag() == "error") {
+      return c
+    } else if (c == kNil) {
+      return eval(safeCar(safeCdr(safeCdr(args))), env)
+    }
+    return eval(safeCar(safeCdr(args)), env)
+  }
+  return apply(eval(op, env), evlis(args, env))
+}
+
+def evlisImpl(var lst, env) {
+  var ret := kNil
+  while (lst.tag() == "cons") {
+    def elm := eval(lst.car(), env)
+    if (elm.tag() == "error") {
+      return elm
+    }
+    ret := makeCons(elm, ret)
+    lst := lst.cdr()
+  }
+  return nreverse(ret)
+}
+evlis := evlisImpl
+
+def applyImpl(func, args) {
+  if (func.tag() == "error") {
+    return func
+  } else if (args.tag() == "error") {
+    return args
+  } else if (func.tag() == "subr") {
+    return func.call(args)
+  }
+  return makeError(printObj(func) + " is not function")
+}
+apply := applyImpl
+
+def subrCar(args) {
+  return safeCar(safeCar(args))
+}
+
+def subrCdr(args) {
+  return safeCdr(safeCar(args))
+}
+
+def subrCons(args) {
+  return makeCons(safeCar(args), safeCar(safeCdr(args)))
 }
 
 addToEnv(sym_t, sym_t, g_env)
+addToEnv(makeSym("car"), makeSubr(subrCar), g_env)
+addToEnv(makeSym("cdr"), makeSubr(subrCdr), g_env)
+addToEnv(makeSym("cons"), makeSubr(subrCons), g_env)
 
 while (true) {
   print("> ")
