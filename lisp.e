@@ -25,6 +25,7 @@ def makeSym(s) {
   }
   return symTable[s]
 }
+def sym_quote := makeSym("quote")
 
 def makeError(s) {
   def err {
@@ -57,6 +58,17 @@ def safeCdr(obj) {
     return obj.cdr()
   }
   return kNil
+}
+
+def nreverse(var lst) {
+  var ret := kNil
+  while (lst.tag() == "cons") {
+    def tmp := lst.cdr()
+    lst.setCdr(ret)
+    ret := lst
+    lst := tmp
+  }
+  return ret
 }
 
 def isSpace(c) {
@@ -127,6 +139,8 @@ def readAtom(var str) {
   return [makeNumOrSym(str), next]
 }
 
+var readList := null
+
 def read(var str) {
   str := skipSpaces(str)
   if (str.size() == 0) {
@@ -134,13 +148,76 @@ def read(var str) {
   } else if (str[0] == kRPar) {
     return [makeError("invalid syntax: " + str), ""]
   } else if (str[0] == kLPar) {
-    return [makeError("noimpl"), ""]
+    return readList(str(1, str.size()))
   } else if (str[0] == kQuote) {
-    return [makeError("noimpl"), ""]
+    def [elm, next] := read(str(1, str.size()))
+    return [makeCons(sym_quote, makeCons(elm, kNil)), next]
   } else {
     return readAtom(str)
   }
 }
+
+def readListImpl(var str) {
+  var ret := kNil
+  while (true) {
+    str := skipSpaces(str)
+    if (str.size() == 0) {
+      return [makeError("unfinished parenthesis"), ""]
+    } else if (str[0] == kRPar) {
+      break
+    }
+    def [elm, next] := read(str)
+    if (elm.tag() == "error") {
+      return [elm, next]
+    }
+    ret := makeCons(elm, ret)
+    str := next
+  }
+  return [nreverse(ret), str(1, str.size())]
+}
+readList := readListImpl
+
+var printList := null
+
+def printObj(obj) {
+  if (obj == kNil) {
+    return "nil";
+  } else if (obj.tag() == "num") {
+    return `${obj.data()}`
+  } else if (obj.tag() == "sym") {
+    return obj.data()
+  } else if (obj.tag() == "error") {
+    return "<error: " + obj.data() + ">"
+  } else if (obj.tag() == "cons") {
+    return printList(obj)
+  } else if (obj.tag() == "subr") {
+    return "<subr>"
+  } else if (obj.tag() == "expr") {
+    return "<expr>"
+  } else {
+    return "<unknown>"
+  }
+}
+
+def printListImpl(var obj) {
+  var ret := ""
+  var first := true
+  while (obj.tag() == "cons") {
+    if (first) {
+      first := false
+    } else {
+      ret += " "
+    }
+    ret += printObj(obj.car())
+    obj := obj.cdr()
+  }
+  if (obj == kNil) {
+    return "(" + ret + ")"
+  } else {
+    return "(" + ret + " . " + printObj(obj) + ")"
+  }
+}
+printList := printListImpl
 
 while (true) {
   print("> ")
@@ -148,5 +225,5 @@ while (true) {
   if (line == null) {
     break
   }
-  println(read(line)[0].data())
+  println(printObj(read(line)[0]))
 }
