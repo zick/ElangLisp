@@ -28,6 +28,7 @@ def makeSym(s) {
 def sym_t := makeSym("t")
 def sym_quote := makeSym("quote")
 def sym_if := makeSym("if")
+def sym_lambda := makeSym("lambda")
 
 def makeError(s) {
   def err {
@@ -70,6 +71,16 @@ def safeCdr(obj) {
   return kNil
 }
 
+def makeExpr(args, env) {
+  def expr {
+    to tag() { return "expr" }
+    to args() { return safeCar(args) }
+    to body() { return safeCdr(args) }
+    to env() { return env }
+  }
+  return expr
+}
+
 def nreverse(var lst) {
   var ret := kNil
   while (lst.tag() == "cons") {
@@ -79,6 +90,16 @@ def nreverse(var lst) {
     lst := tmp
   }
   return ret
+}
+
+def pairlis(var lst1, var lst2) {
+  var ret := kNil
+  while (lst1.tag() == "cons" && lst2.tag() == "cons") {
+    ret := makeCons(makeCons(lst1.car(), lst2.car()), ret)
+    lst1 := lst1.cdr()
+    lst2 := lst2.cdr()
+  }
+  return nreverse(ret)
 }
 
 def isSpace(c) {
@@ -275,6 +296,8 @@ def eval(obj, env) {
       return eval(safeCar(safeCdr(safeCdr(args))), env)
     }
     return eval(safeCar(safeCdr(args)), env)
+  } else if (op == sym_lambda) {
+    return makeExpr(args, env)
   }
   return apply(eval(op, env), evlis(args, env))
 }
@@ -293,6 +316,15 @@ def evlisImpl(var lst, env) {
 }
 evlis := evlisImpl
 
+def progn(var body, env) {
+  var ret := kNil
+  while (body.tag() == "cons") {
+    ret := eval(body.car(), env)
+    body := body.cdr()
+  }
+  return ret
+}
+
 def applyImpl(func, args) {
   if (func.tag() == "error") {
     return func
@@ -300,6 +332,8 @@ def applyImpl(func, args) {
     return args
   } else if (func.tag() == "subr") {
     return func.call(args)
+  } else if (func.tag() == "expr") {
+    return progn(func.body(), makeCons(pairlis(func.args(), args), func.env()))
   }
   return makeError(printObj(func) + " is not function")
 }
