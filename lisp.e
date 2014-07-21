@@ -25,6 +25,7 @@ def makeSym(s) {
   }
   return symTable[s]
 }
+def sym_t := makeSym("t")
 def sym_quote := makeSym("quote")
 
 def makeError(s) {
@@ -219,11 +220,46 @@ def printListImpl(var obj) {
 }
 printList := printListImpl
 
+def findVar(sym, var env) {
+  while (env.tag() == "cons") {
+    var alist := env.car()
+    while (alist.tag() == "cons") {
+      if (alist.car().car() == sym) {
+        return alist.car()
+      }
+      alist := alist.cdr()
+    }
+    env := env.cdr()
+  }
+  return kNil
+}
+
+def g_env := makeCons(kNil, kNil)
+
+def addToEnv(sym, val, env) {
+  env.setCar(makeCons(makeCons(sym, val), env.car()))
+}
+
+def eval(obj, env) {
+  if (obj == kNil || obj.tag() == "num" || obj.tag() == "error") {
+    return obj
+  } else if (obj.tag() == "sym") {
+    def bnd := findVar(obj, env)
+    if (bnd == kNil) {
+      return makeError(obj.data() + " has no value")
+    }
+    return bnd.cdr()
+  }
+  return makeError("noimpl")
+}
+
+addToEnv(sym_t, sym_t, g_env)
+
 while (true) {
   print("> ")
   def line := stdin.readLine()
   if (line == null) {
     break
   }
-  println(printObj(read(line)[0]))
+  println(printObj(eval(read(line)[0], g_env)))
 }
